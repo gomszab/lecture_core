@@ -1,0 +1,4 @@
+[submodule "crates/editor"]
+    path = crates/editor
+    url = https://github.com/gomszab/lecture_editor.git
+    branch = main

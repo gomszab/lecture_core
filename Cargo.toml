@@ -1,0 +1,17 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/md-core",
+    "crates/step-renderer",
+    "crates/lecture-assembler",
+    "crates/tauri-commands",
+    "crates/editor/src-tauri",
+]
+
+[workspace.dependencies]
+wasm-bindgen = "0.2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+serde_yaml = "0.9"
+pulldown-cmark = "0.11"
+regex = "1"
