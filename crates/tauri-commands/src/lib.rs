@@ -8,7 +8,7 @@ use md_core::{
 };
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
-use std::fs;
+use std::{fs, vec};
 use std::path::{Path, PathBuf};
 use walkdir::WalkDir;
 
@@ -25,6 +25,18 @@ pub struct FileEntry {
     pub name: String,
     pub path: String,
     pub is_dir: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Lecture{
+    pub lecture: LectureYaml,
+    pub assets: Vec<LectureAssets>
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LectureAssets {
+    path: String,
+    name: String
 }
 
 // ── Path helpers ─────────────────────────────────────────────────────────────-
@@ -96,8 +108,37 @@ pub fn scan_workspace(content_path: String) -> Result<Vec<LectureEntry>, String>
         .collect())
 }
 
-pub fn load_lecture(lecture_yaml_path: String) -> Result<LectureYaml, String> {
-    load_lecture_yaml(Path::new(&lecture_yaml_path))
+fn load_assets_folders(path: &Path) -> Result<Vec<LectureAssets>, String> {
+    let parent_folder = path.parent().expect("Invalid path");
+    let assets = read_asset_dir(&parent_folder.join("assets"))?;
+    Ok(assets)
+}
+
+fn read_asset_dir(dir: &Path) -> Result<Vec<LectureAssets>, String>{
+    if !dir.exists() {
+        return Ok(vec![]);
+    }
+    let mut assets = Vec::new();
+    for entry in walkdir::WalkDir::new(dir)
+    .into_iter()
+    .filter_map(|e| e.ok())
+    .filter(|e| e.file_type().is_file()){
+        let path = entry.path().to_str().unwrap().to_string();
+        let name = entry.file_name().to_str().unwrap().to_string();
+
+        assets.push(LectureAssets { path, name });
+    }
+
+    Ok(assets)
+}
+
+pub fn load_lecture(lecture_yaml_path: String) -> Result<Lecture, String> {
+    let lecture = load_lecture_yaml(Path::new(&lecture_yaml_path))?;
+    let assets = load_assets_folders(Path::new(&lecture_yaml_path))?;
+    Ok(Lecture{
+        lecture,
+        assets
+    })
 }
 
 pub fn save_lecture(
@@ -179,7 +220,7 @@ pub fn create_lecture(
 
 pub fn create_language(lecture_path: String, lang: String) -> Result<(), String> {
     let lang_dir = PathBuf::from(&lecture_path).join(&lang);
-    for sub in ["steps", "tables", "snippets"] {
+    for sub in ["steps", "assets"] {
         fs::create_dir_all(lang_dir.join(sub)).map_err(|e| format!("mkdir: {e}"))?;
     }
 
@@ -332,14 +373,14 @@ pub fn run_diagnostics(lecture_yaml_path: String) -> Result<Vec<Diagnostic>, Str
     // These are absolute OS paths normalized to forward slashes, e.g.
     // "C:/.../content/rust-intro/en/tables/foo.md".
     let mut available: Vec<String> = Vec::new();
-    for dir in ["tables", "snippets"] {
-        let d = base_dir.join(dir);
-        if let Ok(rd) = fs::read_dir(&d) {
-            for entry in rd.flatten() {
-                available.push(normalize_pathbuf(&entry.path()));
-            }
+    
+    let d = base_dir.join("assets");
+    if let Ok(rd) = fs::read_dir(&d) {
+        for entry in rd.flatten() {
+            available.push(normalize_pathbuf(&entry.path()));
         }
     }
+
 
     // Per-step diagnostics: scan with the same normalized base path string,
     // so IncludeDirective.resolved_path lines up with the normalized assets above.
@@ -386,12 +427,12 @@ mod tests {
         let lp = format!("{cp}/lec");
         create_step(lp.clone(), "en".into(), "s2".into(), "S2".into()).unwrap();
         let yp = format!("{lp}/en/lecture.yaml");
-        assert_eq!(load_lecture(yp.clone()).unwrap().steps.len(), 2);
-        let fname = load_lecture(yp.clone()).unwrap().steps[1].filename.clone();
+        assert_eq!(load_lecture(yp.clone()).unwrap().lecture.steps.len(), 2);
+        let fname = load_lecture(yp.clone()).unwrap().lecture.steps[1].filename.clone();
         rename_step(lp.clone(), "en".into(), fname.clone(), "Renamed".into()).unwrap();
-        assert_eq!(load_lecture(yp.clone()).unwrap().steps[1].title, "Renamed");
+        assert_eq!(load_lecture(yp.clone()).unwrap().lecture.steps[1].title, "Renamed");
         delete_step(lp, "en".into(), fname).unwrap();
-        assert_eq!(load_lecture(yp).unwrap().steps.len(), 1);
+        assert_eq!(load_lecture(yp).unwrap().lecture.steps.len(), 1);
     }
 
     #[test]
