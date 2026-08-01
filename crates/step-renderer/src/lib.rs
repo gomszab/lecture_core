@@ -1,7 +1,7 @@
 //! step-renderer: WASM crate for single-step operations.
 //! Exposes render_step_scan and render_step_render to JavaScript.
 
-use md_core::{render_step, scan_step};
+use md_core::{render_step, scan_step, replace_internal_image};
 use serde_json;
 use std::collections::HashMap;
 use wasm_bindgen::prelude::*;
@@ -26,7 +26,7 @@ pub fn render_step_render(
 ) -> Result<String, JsValue> {
     let assets: HashMap<String, String> =
         serde_json::from_str(assets_json).map_err(|e| JsValue::from_str(&e.to_string()))?;
-    Ok(render_step(markdown, base_path, &assets))
+    Ok(render_step(&replace_internal_image(markdown, base_path), base_path, &assets))
 }
 
 // ─── Native unit tests (test md-core logic, not WASM bindings) ───────────────

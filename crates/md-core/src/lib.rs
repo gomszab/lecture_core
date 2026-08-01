@@ -127,6 +127,18 @@ pub fn parse_internal_links(markdown: &str) -> Vec<String> {
         .collect()
 }
 
+pub fn replace_internal_image (markdown: &str, base_path: &str) -> String {
+    let re = Regex::new(r"!\[([^\]]+)\]\((\.\/assets\/[^)]+\.png)\)").unwrap();
+
+    re
+    .replace_all(markdown, |caps: &regex::Captures| {
+        let alt = &caps[1];
+        let resolved = resolve_path(base_path, &caps[2]);
+        format!("![{}]({})", alt, resolved)
+    })
+    .into_owned()
+}
+
 // ─── Step Scanning ────────────────────────────────────────────────────────────
 
 /// Pass 1: scan a raw step markdown file and return all includes + internal links.
