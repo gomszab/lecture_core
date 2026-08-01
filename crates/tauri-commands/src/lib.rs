@@ -39,6 +39,24 @@ pub struct LectureAssets {
     name: String
 }
 
+#[derive(PartialEq, Eq)]
+pub enum AssetType {
+    TABLE,
+    IMG,
+    SOURCE
+}
+
+impl From<String> for AssetType{
+    fn from(value: String) -> Self {
+        match value.as_ref() {
+            "table" => AssetType::TABLE,
+            "img"=> AssetType::IMG,
+            "source" => AssetType::SOURCE, 
+            _ => panic!("Unsupported type")
+        }
+    }
+}
+
 // ── Path helpers ─────────────────────────────────────────────────────────────-
 
 fn normalize_path_str(p: &str) -> String {
@@ -191,7 +209,7 @@ pub fn create_lecture(
     title: String,
 ) -> Result<(), String> {
     let dir = PathBuf::from(&content_path).join(&slug).join(&lang);
-    for sub in ["steps", "tables", "snippets"] {
+    for sub in ["steps", "assets"] {
         fs::create_dir_all(dir.join(sub)).map_err(|e| format!("mkdir: {e}"))?;
     }
 
@@ -280,6 +298,45 @@ pub fn create_step(
     Ok(())
 }
 
+const EXAMPLE_TABLE: &str = "
+<style>
+table {
+  border-collapse: collapse;
+}
+
+th, td {
+  border: 1px solid #000;
+  padding: 0.5rem 0.75rem;
+}
+</style>
+
+| Left aligned | Center aligned | Right aligned |
+|:-------------|:--------------:|--------------:|
+| Example A    | Example B      | Example C     |
+";
+
+pub fn create_asset(
+    lecture_path: String,
+    lang: String,
+    slug: String,
+    typ: String,
+    content: Option<Vec<u8>>
+) -> Result<(), String> {
+    let lang_dir = PathBuf::from(&lecture_path).join(&lang);
+    let (filename, content) = match AssetType::from(typ) {
+        AssetType::IMG => (format!("{}",slug), content.unwrap_or_else(|| panic!("No source Image"))),
+        AssetType::SOURCE=> (format!("{}",slug), content.unwrap_or_else( || "Write your code here".into())),
+        AssetType::TABLE => (format!("{slug}.md"), EXAMPLE_TABLE.into()),
+    };
+
+    let step_path = lang_dir.join("assets").join(&filename);
+    if !step_path.exists() {
+        fs::write(&step_path, content)
+            .map_err(|e| format!("Write: {e}"))?;
+    }
+    Ok(())
+}
+
 pub fn delete_step(
     lecture_path: String,
     lang: String,
@@ -293,6 +350,20 @@ pub fn delete_step(
     save_lecture_yaml(&yaml_path, &lecture)?;
 
     let sp = lang_dir.join("steps").join(&filename);
+    if sp.exists() {
+        fs::remove_file(&sp).map_err(|e| format!("Remove: {e}"))?;
+    }
+    Ok(())
+}
+
+pub fn delete_asset(
+    lecture_path: String,
+    lang: String,
+    filename: String,
+) -> Result<(), String> {
+    let lang_dir = PathBuf::from(&lecture_path).join(&lang);
+
+    let sp = lang_dir.join("assets").join(&filename);
     if sp.exists() {
         fs::remove_file(&sp).map_err(|e| format!("Remove: {e}"))?;
     }
@@ -317,6 +388,20 @@ pub fn rename_step(
         .map(|s| s.title = new_title)?;
 
     save_lecture_yaml(&yaml_path, &lecture)
+}
+
+pub fn rename_asset(
+    lecture_path: String,
+    lang: String,
+    filename: String,
+    new_filename: String,
+) -> Result<(), String> {
+    let lang_dir = PathBuf::from(&lecture_path).join(&lang);
+    let assets_dir = PathBuf::from(&lang_dir).join("assets");
+    let from = assets_dir.join(&filename);
+    let to = assets_dir.join(&new_filename);
+
+    fs::rename(&from, &to).map_err(|e| e.to_string())
 }
 
 pub fn reorder_steps(

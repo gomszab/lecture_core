@@ -167,12 +167,14 @@ pub fn render_step(
     // Replace ::include directives with asset content or error blocks
     let expanded = include_re.replace_all(markdown, |caps: &regex::Captures| {
         let src_raw = &caps[1];
+        println!("{}", &src_raw);
         let resolved = resolve_path(base_path, src_raw);
         match assets.get(&resolved) {
             Some(content) => {
                 // Wrap in a fenced code block if it's a code snippet
-                if src_raw.ends_with(".rs") || src_raw.ends_with(".wit") || src_raw.ends_with(".toml") {
+                if !src_raw.ends_with(".md") {
                     let ext = src_raw.rsplit('.').next().unwrap_or("text");
+                    println!("{}", &ext);
                     format!("```{}\n{}\n```", ext, content.trim())
                 } else {
                     content.clone()
