@@ -217,7 +217,7 @@ pub fn rewrite_internal_links(html: &str, slug_map: &HashMap<String, String>) ->
     for (href_raw, anchor) in slug_map {
         // Match both URL-encoded and raw href variants
         let pattern = format!("href=\"{}\"", href_raw);
-        let replacement = format!("href=\"#{}\"", anchor);
+        let replacement = format!("href=\"#{}\" class=\"nav-link-inner-text\"", anchor);
         result = result.replace(&pattern, &replacement);
     }
     result

@@ -17,6 +17,7 @@ use walkdir::WalkDir;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LectureEntry {
     pub slug: String,
+    pub title: String,
     pub languages: Vec<String>,
 }
 
@@ -93,7 +94,7 @@ pub fn scan_workspace(content_path: String) -> Result<Vec<LectureEntry>, String>
         return Err(format!("Not a directory: {content_path}"));
     }
 
-    let mut map: BTreeMap<String, Vec<String>> = BTreeMap::new();
+    let mut map: BTreeMap<String,(String, Vec<String>)> = BTreeMap::new();
 
     for entry in WalkDir::new(root).max_depth(3).min_depth(1) {
         let entry = entry.map_err(|e| e.to_string())?;
@@ -112,16 +113,27 @@ pub fn scan_workspace(content_path: String) -> Result<Vec<LectureEntry>, String>
                     .unwrap_or_default()
                     .to_string_lossy()
                     .into_owned();
-                map.entry(slug).or_default().push(lang);
+                
+                let yaml_text = fs::read_to_string(path)
+                    .map_err(|e| format!("Read {}: {e}", path.display()))?;
+
+                let parsed: LectureYaml = serde_yaml::from_str(&yaml_text)
+                    .map_err(|e| format!("YAML {}: {e}", path.display()))?;
+
+                let title = parsed.lecture.title;
+
+                let entry = map.entry(slug).or_insert_with(|| (title.clone(), Vec::new()));
+                entry.0 = title;
+                entry.1.push(lang);
             }
         }
     }
 
     Ok(map
         .into_iter()
-        .map(|(slug, mut languages)| {
+        .map(|(slug, (title, mut languages))| {
             languages.sort();
-            LectureEntry { slug, languages }
+            LectureEntry { slug, title, languages }
         })
         .collect())
 }
@@ -171,9 +183,16 @@ pub fn regenerate_manifest(
     manifest_path: String,
 ) -> Result<(), String> {
     let entries = scan_workspace(content_path)?;
-    let json = serde_json::to_string_pretty(&entries)
+
+    let json = serde_json::json!({
+        "lectures": entries
+    });
+
+    let text = serde_json::to_string_pretty(&json)
         .map_err(|e| format!("JSON: {e}"))?;
-    fs::write(&manifest_path, json).map_err(|e| format!("Write: {e}"))
+
+    fs::write(&manifest_path, text)
+        .map_err(|e| format!("Write: {e}"))
 }
 
 pub fn read_file(path: String) -> Result<String, String> {

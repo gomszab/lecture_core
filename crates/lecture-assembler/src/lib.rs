@@ -63,7 +63,7 @@ fn build_spa_html(lecture: &LectureYaml, steps: &[RenderedStep]) -> String {
         .join("\n\n");
 
     format!(
-        "<div class=\"lecture-spa\" data-slug=\"{}\" data-lang=\"{}\">\n  <aside class=\"lecture-sidebar\">\n    <h3>{}</h3>\n    <ul class=\"step-nav\">{}</ul>\n  </aside>\n  <main class=\"lecture-content\">{}</main>\n</div>",
+        "\n  <aside class=\"lecture-sidebar\" id=\"{}-{}\">\n    <h3>{}</h3>\n    <ul class=\"step-nav\">{}</ul>\n  </aside>\n  <main class=\"lecture-content\">{}</main>\n",
         lecture.lecture.slug,
         lecture.lecture.lang,
         lecture.lecture.title,
